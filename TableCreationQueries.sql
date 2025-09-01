@@ -65,8 +65,8 @@ CREATE TABLE Fights(
   
   PRIMARY KEY (fight_id),
   FOREIGN KEY (event_id) REFERENCES Events(event_id) ON DELETE CASCADE,
-  FOREIGN KEY (redFighter_id) REFERENCES Fighters(fighter_id) ON DELETE CASCADE,
-  FOREIGN KEY (blueFighter_id) REFERENCES Fighters(fighter_id) ON DELETE CASCADE
+  FOREIGN KEY (red_fighter_id) REFERENCES Fighters(fighter_id) ON DELETE CASCADE,
+  FOREIGN KEY (blue_fighter_id) REFERENCES Fighters(fighter_id) ON DELETE CASCADE
 );
 
 -- Fighter statistics at the time of fight
