@@ -311,16 +311,16 @@ def create_fight_differentials(df):
                                               'age_diff': age_diff, 'sig_strikes_diff': sig_strikes_diff, 'avg_submission_att_diff': avg_submission_att_diff, 'avg_takedown_landed_diff': avg_takedown_landed_diff})
     return all_fighters_differentials
     
-all_fighters = create_fighter_table(df)
+# all_fighters = create_fighter_table(df)
 
-all_events = create_event_table(df)
+# all_events = create_event_table(df)
 
-all_fights = create_fight_table(df, all_fighters, all_events)
+# all_fights = create_fight_table(df, all_fighters, all_events)
 
-all_stats = create_fighter_stats_per_fight_table(df, all_fighters)
+# all_stats = create_fighter_stats_per_fight_table(df, all_fighters)
 
 # all_odds = create_betting_odds_table(df)
 
 # all_fighter_rankings = create_fighter_rankings(df, all_fighters)
 
-print(create_fight_differentials(df))
+# print(create_fight_differentials(df))
