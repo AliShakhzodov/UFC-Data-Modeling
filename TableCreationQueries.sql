@@ -1,8 +1,8 @@
 DROP TABLE IF EXISTS Fights CASCADE;
 DROP TABLE IF EXISTS Fighters CASCADE;
 DROP TABLE IF EXISTS Events CASCADE;
-DROP TABLE IF EXISTS FighterStatsPerFight CASCADE;
-DROP TABLE IF EXISTS Betting_Odds CASCADE;
+DROP TABLE IF EXISTS Fighter_stats_per_fight CASCADE;
+DROP TABLE IF EXISTS Betting_odds CASCADE;
 DROP TABLE IF EXISTS Fighter_rankings CASCADE;
 DROP TABLE IF EXISTS Fight_differentials CASCADE;
 
@@ -24,7 +24,7 @@ CREATE TABLE Fighters(
   fighter_id SERIAL,
   fighter_name VARCHAR(100) NOT NULL UNIQUE,
   stance fighterStances,
-  reach DECIMAL(10,2),
+  reach_cms DECIMAL(10,2),
   height_cms DECIMAL(10,2),
   gender genders,
   
@@ -39,7 +39,6 @@ CREATE TABLE Events(
   event_id SERIAL,
   event_date DATE NOT NULL,
   event_location VARCHAR(200),
-  empty_arena BOOLEAN DEFAULT FALSE,
   
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   
@@ -50,8 +49,8 @@ CREATE TABLE Events(
 CREATE TABLE Fights(
   fight_id SERIAL,
   event_id INT,
-  redFighter_id INT NOT NULL,
-  blueFighter_id INT NOT NULL,
+  red_fighter_id INT NOT NULL,
+  blue_fighter_id INT NOT NULL,
   title_bout BOOLEAN DEFAULT FALSE,
   num_rounds INT,
   winner_color VARCHAR(10),
@@ -66,12 +65,12 @@ CREATE TABLE Fights(
   
   PRIMARY KEY (fight_id),
   FOREIGN KEY (event_id) REFERENCES Events(event_id) ON DELETE CASCADE,
-  FOREIGN KEY (redFighter_id) REFERENCES Fighters(fighter_id) ON DELETE CASCADE,
-  FOREIGN KEY (blueFighter_id) REFERENCES Fighters(fighter_id) ON DELETE CASCADE
+  FOREIGN KEY (red_fighter_id) REFERENCES Fighters(fighter_id) ON DELETE CASCADE,
+  FOREIGN KEY (blue_fighter_id) REFERENCES Fighters(fighter_id) ON DELETE CASCADE
 );
 
 -- Fighter statistics at the time of fight
-CREATE TABLE FighterStatsPerFight(
+CREATE TABLE Fighter_stats_per_fight(
   stat_id SERIAL NOT NULL,
   fight_id INT NOT NULL,
   fighter_id INT,
@@ -112,23 +111,23 @@ CREATE TABLE FighterStatsPerFight(
 );
 
 -- Betting info for each fight
-CREATE TABLE Betting_Odds(
+CREATE TABLE Betting_odds(
   odds_id SERIAL,
   fight_id INT NOT NULL,
 
   -- Main odds
-  red_Odds DECIMAL(8,2),
-  blue_Odds DECIMAL(8,2),
-  red_Expected_Value DECIMAL(8,4),
-  blue_Expected_Value DECIMAL(8,4),
+  red_odds DECIMAL(8,2),
+  blue_odds DECIMAL(8,2),
+  red_expected_value DECIMAL(8,4),
+  blue_expected_value DECIMAL(8,4),
 
   -- Method odds
-  red_Dec_Odds DECIMAL(8,2),
-  blue_Dec_Odds DECIMAL(8,2),
-  red_KO_Odds DECIMAL(8,2),
-  blue_KO_Odds DECIMAL(8,2),
-  red_Submission_Odds DECIMAL(8,2),
-  blue_Submission_Odds DECIMAL(8,2),
+  red_dec_odds DECIMAL(8,2),
+  blue_dec_odds DECIMAL(8,2),
+  red_KO_odds DECIMAL(8,2),
+  blue_KO_odds DECIMAL(8,2),
+  red_submission_odds DECIMAL(8,2),
+  blue_submission_odds DECIMAL(8,2),
   PRIMARY KEY (odds_id),
 
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -192,15 +191,15 @@ CREATE TABLE Fight_differentials(
   submission_diff INT,
 
   -- Physical differentials
-  height_cms_diff INT,
-  reach_cms_diff INT,
+  height_cms_diff DECIMAL(8,2),
+  reach_cms_diff DECIMAL(8,2),
   weight_lbs_diff INT,
   age_diff INT,
 
   -- Performance differentials
   sig_strikes_diff DECIMAL(8,2),
   avg_submission_att_diff DECIMAL(5,2),
-  avg_takedown_att_diff DECIMAL(5,2),
+  avg_takedown_landed_diff DECIMAL(5,2),
 
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   
