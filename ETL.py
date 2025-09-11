@@ -4,11 +4,12 @@
 
 import pandas as pd # Data manipulation and analysis
 import numpy as np # Numerical operations
-from sqlalchemy import create_engine # SQL toolkit and Object-Relational Mapping (ORM)\
+from sqlalchemy import create_engine, text # SQL toolkit and Object-Relational Mapping (ORM)
+from sqlalchemy import insert
 import re # Regular expressions for string manipulation
 import statistics
 
-df = pd.read_csv('ufc-master.csv')
+engine = create_engine("postgresql+psycopg2://postgres:d4tAg3n1Us$+_*@localhost:5432/UFC Data Analysis")
 
 #Helper functions that are used for cleaning and formatting data
 def clean_fighter_names(name):
@@ -25,6 +26,13 @@ def create_ids(df):
     df = df.copy()
     df['id'] = range(1, len(df) + 1)
     return df
+
+def time_parser(time):
+    if(isinstance(time, float)):
+        return
+    minutes = time[0:1]
+    seconds = (int(minutes)*60) + (int(time[2:]))
+    return seconds
 
 # Functions to format the dataframe column names to their respective PostgreSQL table attributes
 def create_fighter_table(df):
@@ -50,15 +58,24 @@ def create_fighter_table(df):
     all_fighters = all_fighters.dropna(subset=['fighter_name'])
     
     unique_fighters = all_fighters.groupby('fighter_name').agg(
-        stance=('stance', pd.Series.mode),
+        stance=('stance', lambda x: x.value_counts().index[0]),
         reach_cms=('reach_cms', 'mean'),
         height_cms=('height_cms', 'mean'),
-        gender=('gender', pd.Series.mode)
+        gender=('gender', 'first')
     ).reset_index()
+
+    unique_fighters['reach_cms'] = unique_fighters['reach_cms'].round(2)
+    unique_fighters['height_cms'] = unique_fighters['height_cms'].round(2)
 
     unique_fighters = create_ids(unique_fighters)
     unique_fighters.rename(columns={'id': 'fighter_id'}, inplace=True)
 
+    unique_fighters = unique_fighters.astype({
+        'fighter_name': 'str',
+        'stance': 'str',
+        'gender': 'str'
+    })
+    
     return unique_fighters
 
 def create_event_table(df):
@@ -70,6 +87,10 @@ def create_event_table(df):
     unique_events = events.drop_duplicates()
     unique_events = create_ids(unique_events)
     unique_events = unique_events.rename(columns={'id': 'event_id'})
+    
+    unique_events = unique_events.astype({
+        'event_location': 'str'
+    })
     
     return unique_events
 
@@ -97,6 +118,17 @@ def create_fight_table(df, fighters, events):
     unique_fights = all_fights.drop_duplicates()
     unique_fights = create_ids(all_fights)
     unique_fights.rename(columns={'id': 'fight_id'}, inplace=True)
+    unique_fights['finish_round_time'] = unique_fights['finish_round_time'].apply(time_parser)
+    
+    unique_fights = unique_fights.astype({
+        'winner_color': 'str',
+        'weight_class': 'str',
+        'finish_method': 'str',
+        'finish_details': 'str',
+        'finish_round': 'Int64',
+        'finish_round_time': 'Int64',
+        'total_fight_time_seconds': 'Int64'
+    })
     
     return unique_fights
 
@@ -115,9 +147,9 @@ def create_fighter_stats_per_fight_table(df, fighters):
         'RedWins': 'total_wins',
         'RedLosses': 'total_losses',
         'RedDraws': 'total_draws',
-        'RedWinsByKO': 'wins_by_KO',
+        'RedWinsByKO': 'wins_by_ko',
         'RedWinsBySubmission': 'wins_by_submission',
-        'RedWinsByTKODoctorStoppage': 'wins_by_TKO_doctor_stoppage',
+        'RedWinsByTKODoctorStoppage': 'wins_by_tko_doctor_stoppage',
         'RedWinsByDecisionUnanimous': 'wins_by_decision_unanimous',
         'RedWinsByDecisionMajority': 'wins_by_decision_majority',
         'RedWinsByDecisionSplit': 'wins_by_decision_split',
@@ -142,9 +174,9 @@ def create_fighter_stats_per_fight_table(df, fighters):
         'BlueWins': 'total_wins',
         'BlueLosses': 'total_losses',
         'BlueDraws': 'total_draws',
-        'BlueWinsByKO': 'wins_by_KO',
+        'BlueWinsByKO': 'wins_by_ko',
         'BlueWinsBySubmission': 'wins_by_submission',
-        'BlueWinsByTKODoctorStoppage': 'wins_by_TKO_doctor_stoppage',
+        'BlueWinsByTKODoctorStoppage': 'wins_by_tko_doctor_stoppage',
         'BlueWinsByDecisionUnanimous': 'wins_by_decision_unanimous',
         'BlueWinsByDecisionMajority': 'wins_by_decision_majority',
         'BlueWinsByDecisionSplit': 'wins_by_decision_split',
@@ -173,21 +205,31 @@ def create_fighter_stats_per_fight_table(df, fighters):
     fighter_stats = create_ids(all_fighters_stats)
     fighter_stats.rename(columns={'id': 'stat_id'}, inplace=True)
     
+    fighter_stats['avg_sig_strikes_landed'] = fighter_stats['avg_sig_strikes_landed'].round(2)
+    fighter_stats['avg_sig_strikes_pct'] = fighter_stats['avg_sig_strikes_pct'].round(2)
+    fighter_stats['avg_submission_attempts'] = fighter_stats['avg_submission_attempts'].round(2)
+    fighter_stats['avg_takedowns_landed'] = fighter_stats['avg_takedowns_landed'].round(2)
+    fighter_stats['avg_takedowns_pct'] = fighter_stats['avg_takedowns_pct'].round(2)
+    
+    fighter_stats = fighter_stats.astype({
+        'fighter_corner': 'str'
+    })
+    
     return fighter_stats
 
-def create_betting_odds(df):
+def create_betting_odds_table(df):
     betting_odds = df[['RedOdds', 'RedExpectedValue', 'RedDecOdds', 'RSubOdds','RKOOdds', 
                        'BlueOdds', 'BlueExpectedValue', 'BlueDecOdds', 'BSubOdds', 'BKOOdds']].rename(columns ={
         'RedOdds': 'red_odds', 
         'RedExpectedValue': 'red_expected_value', 
         'RedDecOdds': 'red_dec_odds', 
         'RSubOdds': 'red_submission_odds',
-        'RKOOdds': 'red_KO_odds', 
+        'RKOOdds': 'red_ko_odds', 
         'BlueOdds': 'blue_odds', 
         'BlueExpectedValue': 'blue_expected_value', 
         'BlueDecOdds': 'blue_dec_odds', 
         'BSubOdds': 'blue_submission_odds',
-        'BKOOdds': 'blue_KO_odds'
+        'BKOOdds': 'blue_ko_odds'
      })
     
     betting_odds = create_ids(betting_odds)
@@ -195,6 +237,17 @@ def create_betting_odds(df):
     
     betting_odds = create_ids(betting_odds)
     betting_odds.rename(columns={'id': 'fight_id'}, inplace=True)
+    
+    betting_odds['red_odds'] = betting_odds['red_odds'].round(2)
+    betting_odds['red_expected_value'] = betting_odds['red_expected_value'].round(4)
+    betting_odds['red_dec_odds'] = betting_odds['red_dec_odds'].round(2)
+    betting_odds['red_submission_odds'] = betting_odds['red_submission_odds'].round(2)
+    betting_odds['red_ko_odds'] = betting_odds['red_ko_odds'].round(2)
+    betting_odds['blue_odds'] = betting_odds['blue_odds'].round(2)
+    betting_odds['blue_expected_value'] = betting_odds['blue_expected_value'].round(4)
+    betting_odds['blue_dec_odds'] = betting_odds['blue_dec_odds'].round(2)
+    betting_odds['blue_submission_odds'] = betting_odds['blue_submission_odds'].round(2)
+    betting_odds['blue_ko_odds'] = betting_odds['blue_ko_odds'].round(2)
     
     return betting_odds
 
@@ -284,9 +337,41 @@ def create_fighter_rankings(df, fighters):
     fighter_ranks = create_ids(all_fighter_ranks)
     fighter_ranks.rename(columns={'id': 'ranking_id'}, inplace=True)
     
+    fighter_ranks = fighter_ranks.astype({
+        'weight_class_rank': 'Int64',
+        'w_flyweight_rank': 'Int64',
+        'w_featherweight_rank': 'Int64',
+        'w_strawweight_rank': 'Int64',
+        'w_bantamweight_rank': 'Int64',
+        'heavyweight_rank': 'Int64',
+        'light_heavyweight_rank': 'Int64',
+        'middleweight_rank': 'Int64',
+        'welterweight_rank': 'Int64',
+        'lightweight_rank': 'Int64',
+        'featherweight_rank': 'Int64',
+        'bantamweight_rank': 'Int64',
+        'flyweight_rank': 'Int64',
+        'pfp_rank': 'Int64',
+        'corner_color': 'str',
+        'better_rank': 'bool'
+    })
+    
     return fighter_ranks
 
 def create_fight_differentials(df):
+    df = df.replace('', np.nan)
+    
+    df['RedHeightCms'] = pd.to_numeric(df['RedHeightCms'], errors='coerce')
+    df['BlueHeightCms'] = pd.to_numeric(df['BlueHeightCms'], errors='coerce')
+    df['RedReachCms'] = pd.to_numeric(df['RedReachCms'], errors='coerce')
+    df['BlueReachCms'] = pd.to_numeric(df['BlueReachCms'], errors='coerce')
+    df['RedAvgSigStrLanded'] = pd.to_numeric(df['RedAvgSigStrLanded'], errors='coerce')
+    df['BlueAvgSigStrLanded'] = pd.to_numeric(df['BlueAvgSigStrLanded'], errors='coerce')
+    df['RedAvgSubAtt'] = pd.to_numeric(df['RedAvgSubAtt'], errors='coerce')
+    df['BlueAvgSubAtt'] = pd.to_numeric(df['BlueAvgSubAtt'], errors='coerce')
+    df['RedAvgTDLanded'] = pd.to_numeric(df['RedAvgTDLanded'], errors='coerce')
+    df['BlueAvgTDLanded'] = pd.to_numeric(df['BlueAvgTDLanded'], errors='coerce')
+    
     lose_streak_diff = (df['RedCurrentLoseStreak'] - df['BlueCurrentLoseStreak'])
     win_streak_diff = df['RedCurrentWinStreak'] - df['BlueCurrentWinStreak']
     longest_win_streak_diff = df['RedLongestWinStreak'] - df['BlueLongestWinStreak']
@@ -307,20 +392,47 @@ def create_fight_differentials(df):
         
     all_fighters_differentials = pd.DataFrame({'lose_streak_diff': lose_streak_diff, 'win_streak_diff': win_streak_diff,'longest_win_streak_diff': longest_win_streak_diff,'wins_diff' : wins_diff,
                                               'losses_diff': losses_diff, 'draws_diff': draws_diff, 'total_rounds_diff': total_rounds_diff, 'total_title_bouts_diff' : total_title_bouts_diff,
-                                              'KO_diff': KO_diff, 'submission_diff': submission_diff, 'height_cms_diff': height_cms_diff, 'reach_cms_diff': reach_cms_diff, 'weight_lbs_diff': weight_lbs_diff,
+                                              'ko_diff': KO_diff, 'submission_diff': submission_diff, 'height_cms_diff': height_cms_diff, 'reach_cms_diff': reach_cms_diff, 'weight_lbs_diff': weight_lbs_diff,
                                               'age_diff': age_diff, 'sig_strikes_diff': sig_strikes_diff, 'avg_submission_att_diff': avg_submission_att_diff, 'avg_takedown_landed_diff': avg_takedown_landed_diff})
-    return all_fighters_differentials
+    fighters_differentials = create_ids(all_fighters_differentials)
+    fighters_differentials.rename(columns={'id': 'fight_id'}, inplace=True)
     
-# all_fighters = create_fighter_table(df)
+    unique_fighters_differentials = create_ids(fighters_differentials)
+    unique_fighters_differentials.rename(columns={'id': 'differential_id'}, inplace=True)
+    
+    unique_fighters_differentials['height_cms_diff'] = unique_fighters_differentials['height_cms_diff'].round(2)
+    unique_fighters_differentials['reach_cms_diff'] = unique_fighters_differentials['reach_cms_diff'].round(2)
+    unique_fighters_differentials['sig_strikes_diff'] = unique_fighters_differentials['sig_strikes_diff'].round(2)
+    unique_fighters_differentials['avg_submission_att_diff'] = unique_fighters_differentials['avg_submission_att_diff'].round(2)
+    unique_fighters_differentials['avg_takedown_landed_diff'] = unique_fighters_differentials['avg_takedown_landed_diff'].round(2)
 
-# all_events = create_event_table(df)
+    
+    return unique_fighters_differentials
+    
+df = pd.read_csv('ufc-master.csv', na_values=[''])
 
-# all_fights = create_fight_table(df, all_fighters, all_events)
+all_fighters = create_fighter_table(df)
 
-# all_stats = create_fighter_stats_per_fight_table(df, all_fighters)
+all_events = create_event_table(df)
 
-# all_odds = create_betting_odds_table(df)
+all_fights = create_fight_table(df, all_fighters, all_events)
 
-# all_fighter_rankings = create_fighter_rankings(df, all_fighters)
+all_stats = create_fighter_stats_per_fight_table(df, all_fighters)
 
-# print(create_fight_differentials(df))
+all_odds = create_betting_odds_table(df)
+
+all_fighter_rankings = create_fighter_rankings(df, all_fighters)
+
+all_differentials = create_fight_differentials(df)
+
+all_fighters.to_sql(name='fighters', con=engine, index=False, if_exists='append', method='multi')
+all_events.to_sql(name='events', con=engine,index=False, if_exists='append', method='multi')
+all_fights.to_sql(name='fights', con=engine,index=False, if_exists='append', method='multi')
+all_stats.to_sql(name='fighter_stats_per_fight', con=engine,index=False, if_exists='append', method='multi')
+all_odds.to_sql(name='betting_odds', con=engine,index=False, if_exists='append', method='multi')
+all_fighter_rankings.to_sql(name='fighter_rankings', con=engine,index=False, if_exists='append', method='multi')
+all_differentials.to_sql(name="fight_differentials", con=engine,index=False, if_exists='append', method='multi')
+
+with engine.connect() as conn:
+    conn.execute(text("SELECT * FROM fighters")).fetchall()
+    conn.commit()

@@ -1,8 +1,8 @@
 DROP TABLE IF EXISTS Fights CASCADE;
 DROP TABLE IF EXISTS Fighters CASCADE;
 DROP TABLE IF EXISTS Events CASCADE;
-DROP TABLE IF EXISTS FighterStatsPerFight CASCADE;
-DROP TABLE IF EXISTS Betting_Odds CASCADE;
+DROP TABLE IF EXISTS Fighter_stats_per_fight CASCADE;
+DROP TABLE IF EXISTS Betting_odds CASCADE;
 DROP TABLE IF EXISTS Fighter_rankings CASCADE;
 DROP TABLE IF EXISTS Fight_differentials CASCADE;
 
@@ -70,7 +70,7 @@ CREATE TABLE Fights(
 );
 
 -- Fighter statistics at the time of fight
-CREATE TABLE FighterStatsPerFight(
+CREATE TABLE Fighter_stats_per_fight(
   stat_id SERIAL NOT NULL,
   fight_id INT NOT NULL,
   fighter_id INT,
@@ -111,7 +111,7 @@ CREATE TABLE FighterStatsPerFight(
 );
 
 -- Betting info for each fight
-CREATE TABLE Betting_Odds(
+CREATE TABLE Betting_odds(
   odds_id SERIAL,
   fight_id INT NOT NULL,
 
@@ -191,15 +191,15 @@ CREATE TABLE Fight_differentials(
   submission_diff INT,
 
   -- Physical differentials
-  height_cms_diff INT,
-  reach_cms_diff INT,
+  height_cms_diff DECIMAL(8,2),
+  reach_cms_diff DECIMAL(8,2),
   weight_lbs_diff INT,
   age_diff INT,
 
   -- Performance differentials
   sig_strikes_diff DECIMAL(8,2),
   avg_submission_att_diff DECIMAL(5,2),
-  avg_takedown_att_diff DECIMAL(5,2),
+  avg_takedown_landed_diff DECIMAL(5,2),
 
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   
