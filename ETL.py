@@ -1,14 +1,14 @@
 
 
-# Import necessary libraries
+# Imported necessary libraries
 
 import pandas as pd # Data manipulation and analysis
 import numpy as np # Numerical operations
 from sqlalchemy import create_engine, text # SQL toolkit and Object-Relational Mapping (ORM)
-from sqlalchemy import insert
 import re # Regular expressions for string manipulation
 import statistics
 
+# Initialize the engine
 engine = create_engine("postgresql+psycopg2://postgres:d4tAg3n1Us$+_*@localhost:5432/UFC Data Analysis")
 
 #Helper functions that are used for cleaning and formatting data
@@ -425,6 +425,7 @@ all_fighter_rankings = create_fighter_rankings(df, all_fighters)
 
 all_differentials = create_fight_differentials(df)
 
+# Load all of the data into the tables
 all_fighters.to_sql(name='fighters', con=engine, index=False, if_exists='append', method='multi')
 all_events.to_sql(name='events', con=engine,index=False, if_exists='append', method='multi')
 all_fights.to_sql(name='fights', con=engine,index=False, if_exists='append', method='multi')
@@ -433,6 +434,7 @@ all_odds.to_sql(name='betting_odds', con=engine,index=False, if_exists='append',
 all_fighter_rankings.to_sql(name='fighter_rankings', con=engine,index=False, if_exists='append', method='multi')
 all_differentials.to_sql(name="fight_differentials", con=engine,index=False, if_exists='append', method='multi')
 
+# A way to check if all of the tables have been correctly loaded
 with engine.connect() as conn:
     conn.execute(text("SELECT * FROM fighters")).fetchall()
     conn.commit()
